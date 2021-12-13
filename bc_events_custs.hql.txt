@@ -1,0 +1,23 @@
+drop table if exists marketing_media.bc_events_custs;
+create table marketing_media.bc_events_custs_orc stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select distinct 
+      trim(identity_id) as identity_id, 
+      email, 
+      phone_number, 
+      campaign_name, ignore this
+      event_name, the marketing event
+      email_version, 
+      event_start_date_time, 
+      segment, 
+      cast(registration_date as date) as registration_date, 
+      booking_code, 
+      platform, 
+      source, 
+      last_update_source, 
+      date_added, 
+      last_update_date, 
+      opt_promo_email, 
+      opt_behavioral, 
+      sms_optin_status, 
+      sms_modified_date
+    from marketing_media.event_marketing_raw;

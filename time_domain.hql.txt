@@ -1,0 +1,37 @@
+--create a time domain for the reporting timeframe: starting with the beginning of the first fiscal week in --which the first registration occurs and ending with the last complete fiscal week
+--This would comprise the set of all selectable dates in the dashboard.
+drop table if exists marketing_media.crlbg0_cal_dom_rpt;
+create table marketing_media.crlbg0_cal_dom_rpt stored as orc tblproperties('orc.compress'='SNAPPY') as 
+  select cast(c1.cal_dt as date) as cal_dt, c1.fsc_yr_nbr, c1.fsc_wk_nbr, cast(c1.fsc_wk_end_dt as date) as fsc_wk_end_dt
+    from          ( select distinct cast(c1.fsc_wk_end_dt as date) as fsc_wk_end_dt
+                      from          ( select min(registration_date) as min_reg_dt 
+                                        from marketing_media.crlbg0_events_extract 
+                                    ) as c0
+                        inner join  lowes_tables.i0036_fsc_cal_cnv as c1
+                      where c0.min_reg_dt<=cast(c1.cal_dt as date) and cast(c1.fsc_wk_end_dt as date)<current_date
+                  ) as c0
+      inner join  lowes_tables.i0036_fsc_cal_cnv as c1 on c0.fsc_wk_end_dt=cast(c1.fsc_wk_end_dt as date);
+
+--create a 'lookback' time domain for the 52 complete fiscal weeks which immediately preceed the earliest date --in the reporting timeframe.
+drop table if exists marketing_media.crlbg0_cal_dom_lb;
+create table marketing_media.crlbg0_cal_dom_lb stored as orc tblproperties('orc.compress'='SNAPPY') as 
+  select c0.fsc_wk_end_dt, c0.cal_dt
+    from (
+      select cast(c1.fsc_wk_end_dt as date) as fsc_wk_end_dt, cast(c1.cal_dt as date) as cal_dt, dense_rank() over (order by c1.fsc_wk_end_dt desc) as fwed_dr 
+        from          ( select min(cal_dt) as min_rpt_cal_dt
+                          from marketing_media.crlbg0_cal_dom_rpt
+                      ) as c0
+          inner join  lowes_tables.i0036_fsc_cal_cnv as c1
+        where cast(c1.fsc_wk_end_dt as date)<c0.min_rpt_cal_dt
+    ) as c0
+    where fwed_dr<=52;
+
+--create a time domain which encompasses both the lookback time domain and the reporting time domain.
+
+drop table if exists np_marketinganalytics.crlbg0_cal_dom_all;
+create table marketing_media.crlbg0_cal_dom_all stored as orc tblproperties('orc.compress'='SNAPPY') as 
+  select fsc_wk_end_dt, cal_dt
+    from np_marketinganalytics.crlbg0_cal_dom_rpt
+  union 
+  select fsc_wk_end_dt, cal_dt
+    from marketing_media.crlbg0_cal_dom_lb;

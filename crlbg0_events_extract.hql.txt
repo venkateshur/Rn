@@ -1,0 +1,14 @@
+drop table if exists marketing_media.crlbg0_events_extract;
+create table marketing_media.crlbg0_events_extract_orc stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select 
+      trim(identity_id) as identity_id, 
+      email,                            --each distinct value of this denotes a unique registrant
+      event_name,                       --the marketing event
+      event_start_date_time, 
+      cast(registration_date as date) as registration_date,     
+      booking_code,                     -each distinct value of this denotes a unique registration
+      opt_promo_email, 
+      opt_behavioral, 
+      sms_optin_status, 
+      sms_modified_date
+    from marketing_media.event_marketing_raw;

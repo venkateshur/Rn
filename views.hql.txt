@@ -1,0 +1,13 @@
+drop view if exists marketing_media.vw_bc_events_custs;
+create view marketing_media.vw_bc_events_custs as
+select * from marketing_media.bc_events_custs;
+
+
+drop view if exists marketing_media.vw_crlbg0_cus_attrs;
+create view marketing_media.vw_crlbg0_cus_attrs as
+select * from marketing_media.crlbg0_cus_attrs;
+
+
+drop view if exists marketing_media.vw_crlbg0_cal_dom_all;
+create view marketing_media.vw_crlbg0_cal_dom_all as
+select * from marketing_media.crlbg0_cal_dom_all;

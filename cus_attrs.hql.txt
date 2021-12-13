@@ -1,0 +1,89 @@
+--Gender/Female
+drop table if exists marketing_media.crlbg0_cus_attrs_gender;
+create table marketing_media.crlbg0_cus_attrs_gender stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select * from np_marketinganalytics.bc_cus_gender
+  select c0.new_pal_id, c2.sex_des_txt as gender
+    from          ( select new_pal_id, max(der_mrk_cus_id) as der_mrk_cus_id
+                      from cust_vm.i0018h_cus_dat_hub
+                      where trim(coalesce(new_pal_id, '')) <> ''
+                      group by new_pal_id 
+                  ) as c0
+      inner join  cust_sec_vm.i1707a_pal_cus_dem as c1 on c1.cus_id=c0.der_mrk_cus_id
+      inner join  cust_vm.i1709a_sex_typ as c2 on c1.sex_inp_pal_cd=c2.sex_cd
+    group by c0.new_pal_id, c2.sex_des_txt;
+
+--Generation/Millenial
+drop table if exists marketing_media.crlbg0_cus_attrs_generation;
+create table marketing_media.crlbg0_cus_attrs_generation stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select * from marketing_media.bc_cus_generation
+  select 
+      new_pal_id, 
+      case 
+        when cus_brt_yr >= 2011 then 'Gen Alpha'
+        when cus_brt_yr between 1997 and 2010 then 'GenZ'
+        when cus_brt_yr between 1979 and 1996 then 'Millennial'
+        when cus_brt_yr between 1965 and 1978 then 'GenX'
+        when cus_brt_yr between 1946 and 1964 then 'Baby Boomer'
+        when cus_brt_yr <= 1945 then 'Mature'
+        else 'None'
+      end as generation
+    from (
+      select 
+          c1.new_pal_id, 
+          max(case when trim(coalesce(c0.cus_brt_dt_txt, ''))='' then null else cast(substr(c0.cus_brt_dt_txt, 1, 4) as int) end) as cus_brt_yr
+        from          cust_sec_vm.i1707a_pal_cus_dem as c0
+          inner join  marketing_media.crlbg0_cus_xref_s0 as c1 on c0.cus_id=c1.cus_id
+        group by c1.new_pal_id
+    ) as c0;
+
+--MRP customers
+drop table if marketing_media.crlbg0_cus_attrs_mrp;
+create table marketing_media.crlbg0_cus_attrs_mrp stored as orc tblproperties('orc.compress'='SNAPPY') as 
+  select distinct c1.new_pal_id
+    from          ( select c0.new_pal_id
+                      from        ( select distinct c1.new_pal_id
+                                      from          ( select distinct cus_id
+                                                        from cust_tables.i2092_cus_mty_dct_elg
+                                                        where mty_dct_sts_cd in (1,4)
+                                                          and dac_dt is null
+                                                    ) as c0
+                                        inner join  np_marketinganalytics.crlbg0_cus_xref_s0 as c1 on c0.cus_id=c1.cus_id
+                                  ) as c0
+                        left join ( select distinct c1.new_pal_id
+                                      from          ( select distinct cus_id
+                                                        from cust_tables.i2092_cus_mty_dct_elg
+                                                        where mty_dct_sts_cd not in (1,4)
+                                                          or dac_dt is not null
+                                                    ) as c0
+                                        inner join  np_marketinganalytics.crlbg0_cus_xref_s0 as c1 on c0.cus_id=c1.cus_id
+                                  ) as c1 on c0.new_pal_id=c1.new_pal_id
+                      where c1.new_pal_id is null
+                  ) as c0
+      inner join  marketing_media.crlbg0_cus_xref_s0 as c1 on c0.new_pal_id=c1.new_pal_id
+;
+
+
+--create an attributes table for customers;  attributes stored at new_pal_id level
+drop table if exists marketing_media.crlbg0_cus_attrs;
+create table marketing_media.crlbg0_cus_attrs stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select 
+      c0.new_pal_id,
+      case when c0.cus_typ_id='B' then 1 else 0 end as pro_idc,                  -1:"unknown"; 0:"no"; 1:"yes"
+      case when c1.new_pal_id is not null then 1 else -1 end as female_idc,      -1:"unknown"; 0:"no"; 1:"yes"
+      case when c2.new_pal_id is not null then 1 else -1 end as millenial_idc,   -1:"unknown"; 0:"no"; 1:"yes"
+      case when c3.new_pal_id is not null then 1 else -1 end as mrp_idc          -1:"unknown"; 0:"no"; 1:"yes"
+    from          ( select new_pal_id, min(cus_typ_id) as cus_typ_id 
+                      from marketing_media.crlbg0_cus_xref_s0 
+                      group by new_pal_id 
+                  ) as c0
+      left join   ( select new_pal_id 
+                      from np_marketinganalytics.crlbg0_cus_attrs_gender 
+                      where trim(lower(gender))='female' 
+                  ) as c1 on c0.new_pal_id=c1.new_pal_id
+      left join   ( select new_pal_id 
+                      from marketing_media.crlbg0_cus_attrs_generation 
+                      where generation='Millennial' 
+                  ) as c2 on c0.new_pal_id=c2.new_pal_id
+      left join   ( select new_pal_id 
+                      from marketing_media.crlbg0_cus_attrs_mrp 
+                  ) as c3 on c0.new_pal_id=c3.new_pal_id;

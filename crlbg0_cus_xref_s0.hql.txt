@@ -1,0 +1,5 @@
+drop table if exists marketing_media.crlbg0_cus_xref_s0;
+create table marketing_media.crlbg0_cus_xref_s0 stored as orc tblproperties('orc.compress'='SNAPPY') as 
+  select distinct cus_id, new_pal_id, cus_typ_id
+    from cust_vm.i0018e_lws_cus
+    where trim(coalesce(new_pal_id, ''))<>'';

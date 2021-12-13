@@ -1,0 +1,17 @@
+drop table if exists marketing_media.crlbg0_cus_xref;
+create table marketing_media.crlbg0_cus_xref stored as orc tblproperties('orc.compress'='SNAPPY') as
+  select distinct 
+      trim(c0.src_id) as identity_id, c2.cus_id, c2.new_pal_id    Of course, cus_id is only assigned to one new_pal_id value.  But, it is still possible that there are repeated instances of cus_id (and thereby new_pal_id) since the same cus_id can appear across multiple identity_id values.
+    from          ( select cus_id, src_id
+                      from (
+                        select cus_id, src_id, row_number() over (partition by src_id order by cus_id desc) as ii_ci_rn
+                          from (
+                            select distinct cus_id, src_id
+                              from cust_sec_vm.i0033a_src_sys_cfr 
+                              where src_cd in ('422','436')
+                          ) as c0
+                      ) as c0
+                      where ii_ci_rn=1       ...to deal with the case where there exists more than one cus_id value per identity_id value.
+                  ) as c0
+      inner join  marketing_media.crlbg0_cus_xref_s0 as c1 on c0.cus_id=c1.cus_id
+      inner join  marketing_media.crlbg0_cus_xref_s0 as c2 on c1.new_pal_id=c2.new_pal_id;
